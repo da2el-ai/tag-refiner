@@ -1,0 +1,7 @@
+# 削除したいタグのパターンを正規表現で1行に1つずつ記述
+# コメント行は # で始める
+
+^background$
+^simple background$
+low quality
+worst quality

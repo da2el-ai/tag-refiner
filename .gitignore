@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 仮想環境
+venv/
+env/
+ENV/
+
+# パッケージ情報
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# テスト
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 実際の作業ディレクトリ（サンプル以外）
+dataset/
+
+# 設定ファイル（個人用）
+config.json
+tag_add.txt
+tag_remove.txt
+
+# バックアップファイル
+*.bak
+*.bak.*
+AI_INSTRUCTION
