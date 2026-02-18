@@ -286,3 +286,92 @@ def refine_directory(directory: Path, config: Config) -> None:
     refine_file(file_path, config)
   
   typer.echo(f"\n完了: {len(files)} 個のファイルを処理しました")
+
+
+def list_tags_in_directory(
+  directory: Path,
+  recursive: bool = False,
+  show_count: bool = False,
+  output_file: Path | None = None,
+  sort_by: str = "tag",
+) -> None:
+  """
+  ディレクトリ内のタグを収集して一覧表示する
+  
+  Args:
+    directory: 対象ディレクトリのパス
+    recursive: サブディレクトリを再帰的に処理
+    show_count: 出現回数を表示
+    output_file: 出力ファイルのパス（Noneの場合は標準出力）
+    sort_by: 並び順（"count": 数の多い順、"tag": タグの名前順）
+  """
+  if not directory.exists():
+    typer.echo(f"エラー: ディレクトリが見つかりません: {directory}", err=True)
+    raise typer.Exit(code=1)
+  
+  if not directory.is_dir():
+    typer.echo(f"エラー: パスがディレクトリではありません: {directory}", err=True)
+    raise typer.Exit(code=1)
+  
+  # ファイル検索
+  if recursive:
+    files = list(directory.rglob("*.txt"))
+  else:
+    files = list(directory.glob("*.txt"))
+  
+  if not files:
+    typer.echo(f"警告: .txtファイルが見つかりませんでした: {directory}", err=True)
+    return
+  
+  # タグを収集
+  tag_count: dict[str, int] = {}
+  for file_path in files:
+    try:
+      with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read().strip()
+      
+      # タグ分割
+      tags = [tag.strip() for tag in content.split(",") if tag.strip()]
+      
+      # カウント
+      for tag in tags:
+        tag_count[tag] = tag_count.get(tag, 0) + 1
+    
+    except Exception as e:
+      typer.echo(f"警告: {file_path} の読み込みに失敗しました: {e}", err=True)
+      continue
+  
+  if not tag_count:
+    typer.echo("タグが見つかりませんでした", err=True)
+    return
+  
+  # ソート
+  if sort_by == "count":
+    # 数の多い順（降順）、同じ数の場合はタグ名順
+    sorted_tags = sorted(tag_count.items(), key=lambda x: (-x[1], x[0]))
+  else:  # sort_by == "tag"
+    # タグの名前順（昇順）
+    sorted_tags = sorted(tag_count.items(), key=lambda x: x[0])
+  
+  # 出力内容を生成
+  output_lines = []
+  for tag, count in sorted_tags:
+    if show_count:
+      output_lines.append(f"{count}  {tag}")
+    else:
+      output_lines.append(tag)
+  
+  output_text = "\n".join(output_lines) + "\n"
+  
+  # 出力
+  if output_file:
+    try:
+      with open(output_file, "w", encoding="utf-8") as f:
+        f.write(output_text)
+      typer.echo(f"タグ一覧を {output_file} に出力しました（{len(tag_count)} 種類）")
+    except Exception as e:
+      typer.echo(f"エラー: ファイルへの書き込みに失敗しました: {e}", err=True)
+      raise typer.Exit(code=1)
+  else:
+    # 標準出力
+    typer.echo(output_text, nl=False)

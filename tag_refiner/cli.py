@@ -5,7 +5,7 @@ from typing import Optional
 import typer
 
 from .config import BackupMode, Config, load_config, merge_config
-from .core import refine_directory
+from .core import list_tags_in_directory, refine_directory
 
 app = typer.Typer(
   name="tag-refiner",
@@ -29,6 +29,7 @@ def main_callback(
   
   サブコマンドを指定してください:
   - refine: タグファイルを整形
+  - list: タグの一覧を出力
   """
   if version:
     typer.echo("tag-refiner v1.0.0")
@@ -144,6 +145,56 @@ def refine(
   # ディレクトリ処理
   try:
     refine_directory(config.input_dir, config)
+  except Exception as e:
+    typer.echo(f"エラー: 処理中に問題が発生しました: {e}", err=True)
+    raise typer.Exit(code=1)
+
+
+@app.command(name="list")
+def list_tags(
+  path: Path = typer.Argument(
+    ...,
+    help="処理対象のディレクトリパス",
+  ),
+  recursive: bool = typer.Option(
+    False,
+    "-r",
+    "--recursive",
+    help="サブディレクトリを再帰的に処理",
+  ),
+  list_count: bool = typer.Option(
+    False,
+    "--list-count",
+    help="出現回数を表示",
+  ),
+  list_file: Optional[Path] = typer.Option(
+    None,
+    "--list-file",
+    help="出力するファイル名（指定がなければ標準出力）",
+  ),
+  list_sort: str = typer.Option(
+    "tag",
+    "--list-sort",
+    help="並び順（count: 数の多い順、tag: タグの名前順）",
+  ),
+) -> None:
+  """
+  指定フォルダ内のタグ一覧を出力する
+  """
+  # ソート方法のバリデーション
+  if list_sort not in ["count", "tag"]:
+    typer.echo(f"エラー: --list-sort には 'count' または 'tag' を指定してください", err=True)
+    raise typer.Exit(code=1)
+  
+  # タグ一覧を出力
+  try:
+    list_tags_in_directory(
+      directory=path,
+      recursive=recursive,
+      show_count=list_count,
+      output_file=list_file,
+      sort_by=list_sort,
+    )
   except Exception as e:
     typer.echo(f"エラー: 処理中に問題が発生しました: {e}", err=True)
     raise typer.Exit(code=1)
