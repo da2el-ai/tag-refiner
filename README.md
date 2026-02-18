@@ -17,9 +17,16 @@ WD14 (Danbooru形式) タグ整形CLIツール
 ## インストール
 
 ```bash
-# Python 3.10+ が必要
+# リポジトリをクローンする
+git clone https://github.com/da2el-ai/tag-refiner.git
+cd tag-refiner
+
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Macの場合
+source venv/bin/activate
+# Windowsの場合
+venv\Scripts\activate
 
 # 依存関係のインストール
 pip install -e .
@@ -94,9 +101,21 @@ tag-refiner refine [PATH] [OPTIONS]
 }
 ```
 
-**重要な設定:**
+- **input_dir**: 処理対象のディレクトリ
+- **recursive**: `true` でサブディレクトリを再帰的に処理
+- **tag_add_file**: 追加タグファイルのパス。デフォルトは `tag_add.txt`
+- **tag_remove_file**: 除外タグファイルのパス。デフォルトは"`tag_remove.txt`
+- **shuffle**: `true` でタグの順序をランダム化
+- **shuffle_keep_first**: シャッフル時に先頭からN個を固定
+  - 追加タグをトリガーワードとして使う場合、追加タグの個数を指定することで順序を固定できます
+- **backup**: `true` でバックアップファイルを作成
+- **backup_mode**: バックアップモード
+  - skip: `.bak` が存在すれば作成しない
+  - overwrite: 既存 `.bak` を上書き
+  - versioned: `.bak.1`, `.bak.2` を作成
+- **dry_run**: `true` で実際にファイルを変更せず、処理内容のみ表示
+- **diff**: `true` で変更前後の差分を表示
 
-- `shuffle_keep_first`: シャッフル時に先頭から固定する個数。追加タグをトリガーワードとして使う場合、追加タグの個数を指定することで順序を固定できます。
 
 ### tag_add.txt
 
@@ -129,13 +148,6 @@ low quality
 worst quality
 ```
 
-## バックアップモード
-
-| モード | 動作 |
-|--------|------|
-| `skip` | `.bak` が存在すれば作成しない |
-| `overwrite` | 既存 `.bak` を上書き |
-| `versioned` | `.bak.1`, `.bak.2` を作成 |
 
 ## 開発
 
