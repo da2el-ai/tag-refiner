@@ -93,6 +93,16 @@ def refine(
     "--remove-file",
     help="削除パターンファイルのパス",
   ),
+  regexp: Optional[bool] = typer.Option(
+    None,
+    "--regexp/--no-regexp",
+    help="除外タグで正規表現を使用",
+  ),
+  use_bak: bool = typer.Option(
+    False,
+    "--use-bak",
+    help="キャプション読み込み時に .bak を優先使用",
+  ),
   config_path: Optional[Path] = typer.Option(
     Path("config.json"),
     "--config",
@@ -134,6 +144,7 @@ def refine(
     recursive=recursive,
     tag_add_file=add_file,
     tag_remove_file=remove_file,
+    regexp=regexp,
     shuffle=shuffle,
     shuffle_keep_first=shuffle_keep_first,
     backup=backup,
@@ -144,7 +155,7 @@ def refine(
   
   # ディレクトリ処理
   try:
-    refine_directory(config.input_dir, config)
+    refine_directory(config.input_dir, config, use_bak=use_bak)
   except Exception as e:
     typer.echo(f"エラー: 処理中に問題が発生しました: {e}", err=True)
     raise typer.Exit(code=1)
@@ -177,6 +188,11 @@ def list_tags(
     "--list-sort",
     help="並び順（count: 数の多い順、tag: タグの名前順）",
   ),
+  use_bak: bool = typer.Option(
+    False,
+    "--use-bak",
+    help="キャプション読み込み時に .bak を優先使用",
+  ),
 ) -> None:
   """
   指定フォルダ内のタグ一覧を出力する
@@ -194,6 +210,7 @@ def list_tags(
       show_count=list_count,
       output_file=list_file,
       sort_by=list_sort,
+      use_bak=use_bak,
     )
   except Exception as e:
     typer.echo(f"エラー: 処理中に問題が発生しました: {e}", err=True)

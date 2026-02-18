@@ -12,6 +12,31 @@ import typer
 from .config import Config
 
 
+# 正規表現メタ文字の判定用（要件: . + * などが含まれる場合のみ正規表現として扱う）
+REGEX_META_CHAR_PATTERN = re.compile(r"[.\^$*+?{}\[\]\\|()]")
+
+
+def resolve_read_source(file_path: Path, use_bak: bool) -> Path:
+  """
+  読み込み元ファイルを解決する（.bak優先）
+  
+  Args:
+    file_path: 対象の .txt ファイル
+    use_bak: .bak を優先するか
+  
+  Returns:
+    Path: 実際に読み込むファイルパス
+  """
+  if not use_bak:
+    return file_path
+
+  backup_path = file_path.with_suffix(file_path.suffix + ".bak")
+  if backup_path.exists():
+    return backup_path
+
+  return file_path
+
+
 def load_add_tags(path: Path) -> list[str]:
   """
   追加タグファイルを読み込む
@@ -44,12 +69,13 @@ def load_add_tags(path: Path) -> list[str]:
   return tags
 
 
-def load_remove_patterns(path: Path) -> list[Pattern]:
+def load_remove_patterns(path: Path, use_regexp: bool) -> list[Pattern]:
   """
   削除パターンファイルを読み込む
   
   Args:
     path: tag_remove.txt のパス
+    use_regexp: 正規表現を使用するかどうか
     
   Returns:
     list[Pattern]: 削除する正規表現パターンのリスト
@@ -68,12 +94,20 @@ def load_remove_patterns(path: Path) -> list[Pattern]:
         # コメントと空行を無視
         line = line.strip()
         if line and not line.startswith("#"):
-          try:
-            pattern = re.compile(line)
-            patterns.append(pattern)
-          except re.error as e:
-            typer.echo(f"エラー: 正規表現のコンパイルに失敗 ({path}:{line_num}): {e}", err=True)
-            raise
+          # regexp無効時は全て完全一致として扱う
+          # regexp有効時でもメタ文字がない場合は完全一致として扱う
+          use_regex_for_line = use_regexp and bool(REGEX_META_CHAR_PATTERN.search(line))
+
+          if use_regex_for_line:
+            try:
+              pattern = re.compile(line)
+            except re.error as e:
+              typer.echo(f"エラー: 正規表現のコンパイルに失敗 ({path}:{line_num}): {e}", err=True)
+              raise
+          else:
+            pattern = re.compile(rf"^{re.escape(line)}$")
+
+          patterns.append(pattern)
   except re.error:
     raise
   except Exception as e:
@@ -192,7 +226,7 @@ def create_backup(file_path: Path, config: Config) -> None:
       version += 1
 
 
-def refine_file(file_path: Path, config: Config) -> None:
+def refine_file(file_path: Path, config: Config, use_bak: bool = False) -> None:
   """
   単一のファイルを整形する
   
@@ -201,15 +235,17 @@ def refine_file(file_path: Path, config: Config) -> None:
     config: 設定
   """
   try:
+    source_path = resolve_read_source(file_path, use_bak)
+
     # ファイル読み込み
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(source_path, "r", encoding="utf-8") as f:
       content = f.read().strip()
     
     # タグ分割とstrip
     tags = [tag.strip() for tag in content.split(",") if tag.strip()]
     
     # パターンとタグの読み込み
-    remove_patterns = load_remove_patterns(config.tag_remove_file)
+    remove_patterns = load_remove_patterns(config.tag_remove_file, config.regexp)
     add_tags = load_add_tags(config.tag_add_file)
     
     # タグ処理
@@ -236,9 +272,15 @@ def refine_file(file_path: Path, config: Config) -> None:
       typer.echo(f"[DRY RUN] {file_path}")
       return
     
-    # 内容が変わっていない場合はスキップ
-    if content == new_content:
-      return
+    # 書き込み先の現在内容と同じ場合はスキップ
+    try:
+      with open(file_path, "r", encoding="utf-8") as f:
+        current_target_content = f.read().strip()
+      if current_target_content == new_content:
+        return
+    except Exception:
+      # 現在内容が読めない場合は従来どおり書き込み処理へ進む
+      pass
     
     # バックアップ作成
     create_backup(file_path, config)
@@ -253,7 +295,7 @@ def refine_file(file_path: Path, config: Config) -> None:
     typer.echo(f"エラー: {file_path} の処理に失敗しました: {e}", err=True)
 
 
-def refine_directory(directory: Path, config: Config) -> None:
+def refine_directory(directory: Path, config: Config, use_bak: bool = False) -> None:
   """
   ディレクトリ内のファイルを整形する
   
@@ -283,7 +325,7 @@ def refine_directory(directory: Path, config: Config) -> None:
   
   # 各ファイルを処理
   for file_path in files:
-    refine_file(file_path, config)
+    refine_file(file_path, config, use_bak=use_bak)
   
   typer.echo(f"\n完了: {len(files)} 個のファイルを処理しました")
 
@@ -294,6 +336,7 @@ def list_tags_in_directory(
   show_count: bool = False,
   output_file: Path | None = None,
   sort_by: str = "tag",
+  use_bak: bool = False,
 ) -> None:
   """
   ディレクトリ内のタグを収集して一覧表示する
@@ -327,7 +370,9 @@ def list_tags_in_directory(
   tag_count: dict[str, int] = {}
   for file_path in files:
     try:
-      with open(file_path, "r", encoding="utf-8") as f:
+      source_path = resolve_read_source(file_path, use_bak)
+
+      with open(source_path, "r", encoding="utf-8") as f:
         content = f.read().strip()
       
       # タグ分割

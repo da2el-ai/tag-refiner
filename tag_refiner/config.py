@@ -16,6 +16,7 @@ class Config:
   recursive: bool = False
   tag_add_file: Path = field(default_factory=lambda: Path("tag_add.txt"))
   tag_remove_file: Path = field(default_factory=lambda: Path("tag_remove.txt"))
+  regexp: bool = False
   shuffle: bool = True
   shuffle_keep_first: int = 0  # シャッフル時に先頭から固定する個数
   backup: bool = True
@@ -70,6 +71,7 @@ def merge_config(
   recursive: Optional[bool] = None,
   tag_add_file: Optional[Path] = None,
   tag_remove_file: Optional[Path] = None,
+  regexp: Optional[bool] = None,
   shuffle: Optional[bool] = None,
   shuffle_keep_first: Optional[int] = None,
   backup: Optional[bool] = None,
@@ -92,6 +94,7 @@ def merge_config(
     recursive=recursive if recursive is not None else base.recursive,
     tag_add_file=tag_add_file if tag_add_file is not None else base.tag_add_file,
     tag_remove_file=tag_remove_file if tag_remove_file is not None else base.tag_remove_file,
+    regexp=regexp if regexp is not None else base.regexp,
     shuffle=shuffle if shuffle is not None else base.shuffle,
     shuffle_keep_first=shuffle_keep_first if shuffle_keep_first is not None else base.shuffle_keep_first,
     backup=backup if backup is not None else base.backup,

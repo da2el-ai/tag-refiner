@@ -10,6 +10,8 @@ from tag_refiner.core import (
   load_remove_patterns,
   process_tags,
   generate_diff,
+  resolve_read_source,
+  list_tags_in_directory,
 )
 
 
@@ -21,6 +23,7 @@ class TestConfig(unittest.TestCase):
     config = Config()
     self.assertEqual(config.input_dir, Path("./sample"))
     self.assertFalse(config.recursive)
+    self.assertFalse(config.regexp)
     self.assertTrue(config.shuffle)
     self.assertTrue(config.backup)
     self.assertEqual(config.backup_mode, "skip")
@@ -32,10 +35,12 @@ class TestConfig(unittest.TestCase):
       base,
       input_dir=Path("./test"),
       recursive=True,
+      regexp=True,
       shuffle=False,
     )
     self.assertEqual(merged.input_dir, Path("./test"))
     self.assertTrue(merged.recursive)
+    self.assertTrue(merged.regexp)
     self.assertFalse(merged.shuffle)
     # マージされていない設定はベースから継承
     self.assertTrue(merged.backup)
@@ -138,10 +143,10 @@ class TestLoadFiles(unittest.TestCase):
       pattern_file = Path(tmpdir) / "tag_remove.txt"
       pattern_file.write_text("^background$\n# コメント\nlow quality\n", encoding="utf-8")
       
-      patterns = load_remove_patterns(pattern_file)
+      patterns = load_remove_patterns(pattern_file, use_regexp=True)
       self.assertEqual(len(patterns), 2)
       self.assertTrue(any(p.pattern == "^background$" for p in patterns))
-      self.assertTrue(any(p.pattern == "low quality" for p in patterns))
+      self.assertTrue(any(p.pattern == "^low\\ quality$" for p in patterns))
   
   def test_load_remove_patterns_invalid_regex(self):
     """不正な正規表現のテスト"""
@@ -150,7 +155,83 @@ class TestLoadFiles(unittest.TestCase):
       pattern_file.write_text("^background$\n[invalid\n", encoding="utf-8")
       
       with self.assertRaises(re.error):
-        load_remove_patterns(pattern_file)
+        load_remove_patterns(pattern_file, use_regexp=True)
+
+  def test_load_remove_patterns_regexp_off_literal_match(self):
+    """regexp無効時はメタ文字を含んでも完全一致になるテスト"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+      pattern_file = Path(tmpdir) / "tag_remove.txt"
+      pattern_file.write_text("1\n^bg$\n", encoding="utf-8")
+
+      patterns = load_remove_patterns(pattern_file, use_regexp=False)
+      result = process_tags(["1", "1girl", "^bg$", "bg"], patterns, [], shuffle=False)
+
+      self.assertNotIn("1", result)
+      self.assertIn("1girl", result)
+      self.assertNotIn("^bg$", result)
+      self.assertIn("bg", result)
+
+  def test_load_remove_patterns_regexp_on_plain_text_is_exact(self):
+    """regexp有効時でもメタ文字なし行は完全一致になるテスト"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+      pattern_file = Path(tmpdir) / "tag_remove.txt"
+      pattern_file.write_text("1\n^1.+$\n", encoding="utf-8")
+
+      patterns = load_remove_patterns(pattern_file, use_regexp=True)
+      result = process_tags(["1", "1girl", "2girl"], patterns, [], shuffle=False)
+
+      self.assertNotIn("1", result)
+      self.assertNotIn("1girl", result)
+      self.assertIn("2girl", result)
+
+
+class TestUseBak(unittest.TestCase):
+  """use-bakのテスト"""
+
+  def test_resolve_read_source_prefers_bak(self):
+    """use-bak有効時に.bakを優先するテスト"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+      txt_file = Path(tmpdir) / "sample.txt"
+      bak_file = Path(tmpdir) / "sample.txt.bak"
+      txt_file.write_text("txt", encoding="utf-8")
+      bak_file.write_text("bak", encoding="utf-8")
+
+      resolved = resolve_read_source(txt_file, use_bak=True)
+      self.assertEqual(resolved, bak_file)
+
+  def test_resolve_read_source_fallback_txt(self):
+    """use-bak有効でも.bakがなければ.txtを使うテスト"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+      txt_file = Path(tmpdir) / "sample.txt"
+      txt_file.write_text("txt", encoding="utf-8")
+
+      resolved = resolve_read_source(txt_file, use_bak=True)
+      self.assertEqual(resolved, txt_file)
+
+  def test_list_tags_uses_bak_content(self):
+    """listでuse-bak有効時に.bak内容を集計するテスト"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+      test_dir = Path(tmpdir) / "data"
+      test_dir.mkdir()
+      txt_file = test_dir / "sample.txt"
+      bak_file = test_dir / "sample.txt.bak"
+      output_file = Path(tmpdir) / "out.txt"
+
+      txt_file.write_text("from_txt", encoding="utf-8")
+      bak_file.write_text("from_bak", encoding="utf-8")
+
+      list_tags_in_directory(
+        directory=test_dir,
+        recursive=False,
+        show_count=False,
+        output_file=output_file,
+        sort_by="tag",
+        use_bak=True,
+      )
+
+      output = output_file.read_text(encoding="utf-8")
+      self.assertIn("from_bak", output)
+      self.assertNotIn("from_txt", output)
 
 
 if __name__ == "__main__":
