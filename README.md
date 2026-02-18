@@ -85,9 +85,14 @@ tag-refiner refine [PATH] [OPTIONS]
   --diff                   変更前後の差分を表示
   --add-file PATH          追加タグファイルのパス
   --remove-file PATH       削除パターンファイルのパス
+  --regexp/--no-regexp     除外タグで正規表現を使用
+  --use-bak                キャプション読み込み時に .bak を優先使用
   --config PATH            設定ファイルのパス（デフォルト: config.json）
   --no-config              設定ファイルを使用しない
 ```
+
+`--use-bak` を指定すると、各 `.txt` に対して読み込み元を `.txt.bak` → `.txt` の順で探索します。
+
 
 ### listコマンド
 
@@ -125,7 +130,10 @@ tag-refiner list PATH [OPTIONS]
   --list-sort MODE         並び順 [tag|count]
                            tag: タグの名前順（デフォルト）
                            count: 数の多い順
+  --use-bak                キャプション読み込み時に .bak を優先使用
 ```
+
+`--use-bak` を指定すると、各 `.txt` に対して読み込み元を `.txt.bak` → `.txt` の順で探索します。
 
 ## 設定
 
@@ -137,6 +145,7 @@ tag-refiner list PATH [OPTIONS]
   "recursive": false,
   "tag_add_file": "tag_add.txt",
   "tag_remove_file": "tag_remove.txt",
+  "regexp": false,
   "shuffle": true,
   "shuffle_keep_first": 2,
   "backup": true,
@@ -149,7 +158,10 @@ tag-refiner list PATH [OPTIONS]
 - **input_dir**: 処理対象のディレクトリ
 - **recursive**: `true` でサブディレクトリを再帰的に処理
 - **tag_add_file**: 追加タグファイルのパス。デフォルトは `tag_add.txt`
-- **tag_remove_file**: 除外タグファイルのパス。デフォルトは"`tag_remove.txt`
+- **tag_remove_file**: 除外タグファイルのパス。デフォルトは `tag_remove.txt`
+- **regexp**: `true` で除外タグに正規表現を使用
+  - `false` の場合は全て完全一致
+  - `true` の場合でも、メタ文字（例: `.`, `+`, `*`）がない行は完全一致
 - **shuffle**: `true` でタグの順序をランダム化
 - **shuffle_keep_first**: シャッフル時に先頭からN個を固定
   - 追加タグをトリガーワードとして使う場合、追加タグの個数を指定することで順序を固定できます
@@ -183,7 +195,10 @@ detailed background
 
 ### tag_remove.txt
 
-削除したいタグのパターンを正規表現で1行に1つずつ記述します。
+削除したいタグを1行に1つずつ記述します。
+
+- `regexp: false` の場合: すべて完全一致で除外
+- `regexp: true` の場合: メタ文字を含む行のみ正規表現、それ以外は完全一致
 
 ```text
 # コメント
