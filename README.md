@@ -52,6 +52,45 @@ tag-refiner list ./sample
 tag-refiner --version
 ```
 
+### バッチファイル
+
+バッチファイルを**LoRA作成フォルダ**に作っておくと便利です。<br>
+下記のようなフォルダ構成を例に説明します。
+
+```
+/lora-name
+    +-- taglist.bat # 今回説明するファイル
+    +-- refine.bat  # 今回説明するファイル
+    +-- tag_add.txt    # 追加タグ
+    +-- tag_remove.txt # 除外タグ
+    +-- /train
+        +-- /トリガーワードフォルダ
+            +-- 画像
+```
+
+#### ＜taglist.bat＞
+
+タグリストを作成するバッチファイルです。<br>
+
+```bat
+@echo on
+
+call {tag-refinerインストールフォルダ}\venv\Scripts\activate
+call tag-refiner list .\train -r --list-sort tag --list-file taglist.txt
+```
+
+#### ＜refine.bat＞
+
+タグを整形するバッチファイルです。
+
+```bat
+@echo on
+
+call {tag-refinerインストールフォルダ}\venv\Scripts\activate
+call tag-refiner refine .\train -r --use-bak
+```
+
+
 ### refineコマンド
 
 タグファイルを整形します。
